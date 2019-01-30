@@ -1,0 +1,94 @@
+# Copyright (c) 2011 Vincent Danjean <Vincent.Danjean@imag.fr>
+#
+# This is part of a GNU-Makefile, to specify system-dependent 
+# parts of the Makefile enviroment.
+#
+# This gets included as part of the GNU-Makefile used in each of 
+# the subdirectories.
+#
+# Depending on your platform, you need to select the correct definition.
+
+# Remove -Werror if this is a too big constraint
+CPPFLAGS+=-Wall -Wshadow -Werror
+CFLAGS+=-g
+CXXFLAGS+=-g
+
+# HOST_CC (and other similar variables) is the compiler used to
+# produce native code
+# On linux x86_64, HOSTCC must produce x86_32 code until all nachos
+# source code is fixed.
+
+HOST_TARGET_ARCH=-m32
+HOST_TARGET_MACH=-m32
+HOST_CC=gcc
+HOST_CXX=g++
+
+# MIPS_CC (and other similar variables) is the compiler used to
+# produce mipsel code
+
+GCCDIR ?= $(firstword $(wildcard /usr/mipsel-linux-gnu/bin \
+	/opt/NACHOS/nachos_gcc/cross/decstation-ultrix/bin))
+MIPS_CC=$(firstword $(wildcard \
+	$(GCCDIR)/gcc \
+	/usr/bin/mipsel-linux-gnu-gcc \
+	/opt/NACHOS/nachos_gcc/cross/decstation-ultrix/bin))
+###############################################
+# Nachos requires a very basic compilation mode
+###############################################
+# generate MIPS1 instructions only, with basic floating point operations
+NACHOS_MIPS_FLAGS += -mips1 -mfp32
+# use plain function calls
+NACHOS_MIPS_FLAGS += -mno-abicalls
+# do not generate symbol to relocate at runtime (one option for the compiler, the other for the linker...)
+NACHOS_MIPS_FLAGS += --no-pie
+MIPS_GCC_VERSION:= $(shell $(MIPS_CC) --version | sed -e 's/.* \([0-9.]\+\)$$/\1/p;d')
+ifeq ($(filter 4.4.%,$(MIPS_GCC_VERSION)),)
+# old gcc do not know this option
+NACHOS_MIPS_FLAGS += -no-pie
+endif
+# do not expect to be linked with the gcc library
+NACHOS_MIPS_FLAGS += -fno-builtin
+# disable stack protection where enabled by default (else some symbols will be missing)
+NACHOS_MIPS_FLAGS += -fno-stack-protector
+# do not use small data/bss sections
+NACHOS_MIPS_FLAGS += -G 0
+###############################################
+
+# do not use standard include paths when cross-compiling nachos user programs
+MIPS_CPPFLAGS += -nostdinc
+MIPS_CFLAGS += $(NACHOS_MIPS_FLAGS)
+MIPS_ASFLAGS += $(NACHOS_MIPS_FLAGS)
+# do not link with standard libraries (libc) when creating nachos user programs
+MIPS_LDFLAGS += -nostdlib $(NACHOS_MIPS_FLAGS)
+# -lgcc will perhaps be required with a recent gcc (not on small provided
+# examples of Nachos user programs)
+MIPS_LDLIBS += 
+
+# DEC MIPS, Ultrix
+# HOST = -DHOST_MIPS
+
+ifeq ($(NACHOS_SYS),LINUX_SYS)
+HOST = -DHOST_i386 -DLINUX
+endif # LINUX_SYS
+
+ifeq ($(NACHOS_SYS),SOLARIS_SYS)
+NACHOS_LDFLAGS += -lnsl -lsocket
+ifeq ($(NACHOS_ARCH),SPARC_ARCH)
+HOST = -DHOST_SPARC -DHOST_IS_BIG_ENDIAN -DSOLARIS
+endif
+ifeq ($(NACHOS_ARCH),X86_ARCH)
+HOST = -DHOST_i386 -DSOLARIS
+endif
+endif # SOLARIS_SYS
+
+# HP PA-RISC, HP_UX
+# HOST = -DHOST_SNAKE -DHOST_IS_BIG_ENDIAN
+
+# 386, 386BSD Unix, or NetBSD Unix (available via anon ftp 
+#    from agate.berkeley.edu)
+# HOST = -DHOST_i386
+# CPP=/usr/bin/cpp
+
+# slight variant for 386 FreeBSD
+# HOST = -DHOST_i386 -DFreeBSD
+# CPP=/usr/bin/cpp
